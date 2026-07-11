@@ -3,5 +3,5 @@ apps/
 allure-*/
 logs/
 screenshots/
-
+docs/
 .env

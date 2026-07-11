@@ -495,6 +495,19 @@ mobile-tests.yml   — головний, on: push/pull_request, викликає
 
 **`if: always()` на рівні job'у й на кожному кроці завантаження артефакту** — звіт має публікуватись незалежно від того, впали тести на одній із платформ чи ні; провалений тест — це інформація для звіту, не привід взагалі не мати звіту.
 
+### Урок 18: Реальний прогін на GitHub Actions — знахідка, яку неможливо було передбачити з коду
+
+**"YAML валідний" і "workflow робить дублікати роботи локально" ≠ "workflow реально пройде на GitHub".** Після push у `origin/main` перший реальний прогін `android` job'а впав:
+```
+FATAL | Avd's CPU Architecture 'x86_64' is not supported by the QEMU2 emulator on aarch64 host.
+System image must match the host architecture.
+```
+**Причина:** `runs-on: macos-latest` вказує на найновіший образ GitHub-хостованого macOS-раннера, а GitHub у певний момент **перевів `macos-latest` на Apple Silicon (aarch64)**-раннери, замість колишніх Intel (x86_64). Наш `android-emulator-runner` конфіг просив `arch: x86_64` (той самий вибір, що робиться локально для швидкодії на Intel/AMD ПК) — і QEMU2-емулятор відмовився запускати x86_64-образ на ARM-хості, бо архітектура системного образу мусить збігатись з архітектурою хоста.
+
+**Виправлення:** зафіксувати конкретну, гарантовано Intel-based версію раннера — `runs-on: macos-13` замість `macos-latest`. Прив'язка до конкретної версії тут виправдана (а не "магічне число"): `macos-latest` — рухома ціль, яка може знову змінити базову архітектуру в майбутньому без жодного попередження в нашому коді.
+
+**Головний висновок фази:** жодна кількість статичної перевірки (валідний YAML, коректний TypeScript, логічно вивірена архітектура) не замінює **реальний прогін у реальному середовищі**. Це та сама причина, з якої `verify`-навичка (запустити й подивитись, а не лише прочитати код) залишається необхідною навіть наприкінці курсу з уже "продакшн-готовим" фреймворком — "готовий до презентації" означає "перевірено наживо", а не "написано й виглядає правильно".
+
 ---
 
 ## Глосарій (доповнюється)
@@ -545,8 +558,8 @@ mobile-tests.yml   — головний, on: push/pull_request, викликає
 
 ## Статус курсу
 
-- **Поточна фаза:** курс завершено (усі 14 фаз пройдено), плюс Урок 17 (композиція CI) зверху
-- **Останній завершений урок:** Урок 17 — reusable workflows (android.yml + ios.yml через workflow_call), об'єднаний Allure-звіт у combined-report job
+- **Поточна фаза:** курс завершено (усі 14 фаз пройдено), плюс Уроки 17-18 (композиція CI + реальна перевірка на GitHub) зверху
+- **Останній завершений урок:** Урок 18 — реальний прогін на GitHub Actions виявив несумісність arch: x86_64 з macos-latest (тепер Apple Silicon); виправлено фіксацією на macos-13
 - **Поточна структура:** усе під `src/` — `src/pageobjects/{BasePage.ts, android/*.ts, ios/*.ts}`, `src/config/{wdio.shared,wdio.android,wdio.ios}.conf.ts`, `src/constants.ts`, `src/specs/{android,ios}/*.e2e.ts`
 - **CI:** `.github/workflows/mobile-tests.yml` — головний тригер (push/PR), викликає `android.yml` (macOS-раннер, Android emulator) і `ios.yml` (ubuntu-latest, BrowserStack) паралельно через `workflow_call`, потім `combined-report` job зводить обидва `allure-results` в один HTML-звіт; `web.e2e.ts` явно виключений з Android-прогону через задокументоване обмеження Chromedriver
 - **Запуск локально:** `npm run wdio` → Android (`src/config/wdio.android.conf.ts`); `npm run wdio:ios` → BrowserStack iOS (`src/config/wdio.ios.conf.ts`), реально працює

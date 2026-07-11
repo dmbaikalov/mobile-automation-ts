@@ -12,7 +12,11 @@ jobs:
     # GitHub-hosted Ubuntu runners lack the hardware virtualization (KVM)
     # the Android emulator needs. macOS runners have it built in
     # (Hypervisor.framework), so we run here instead of ubuntu-latest.
-    runs-on: macos-latest
+    # Pinned to macos-13 (Intel), not macos-latest: GitHub migrated
+    # macos-latest to Apple Silicon (aarch64) runners, which can't boot
+    # an x86_64 system image (QEMU2 requires arch to match the host) —
+    # found by actually running this workflow, not by reading docs.
+    runs-on: macos-13
 
     steps:
       - name: Checkout repository
