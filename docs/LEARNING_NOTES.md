@@ -462,6 +462,20 @@ curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
 
 ---
 
+## Фаза 14 — Продакшн-рівень
+
+### Урок 16: Retries, паралелізація, звітність, README
+
+**`specFileRetries` замість ретраю окремого `it()`.** Мобільна флакі-поведінка (Фаза 8 — анімації переходів, тимчасові збої instrumentation) зазвичай пов'язана з часом і станом застосунку/сесії навколо тесту, а не з самою логікою тесту. Ретрай **цілого spec-файлу** (`specFileRetries: 1`, `specFileRetriesDeferred: true`) стартує з чистого стану (через уже наявні `beforeTest`/`afterTest`), а не повторює один `it()` посеред частково зміненого стану застосунку.
+
+**Паралелізація — по-різному для Android і iOS, і це не помилка, а реальне обмеження інфраструктури.** Android (`wdio.android.conf.ts`) обмежений `maxInstances: 1` — один локальний емулятор фізично не може обслуговувати кілька одночасних Appium-сесій без крашу instrumentation-процесу (Фаза 9). BrowserStack (`wdio.ios.conf.ts`), навпаки, виділяє **окремий реальний пристрій на кожну сесію** — тому `maxInstances: 5` тут не небезпечний, а природний. **Не додавав штучних capabilities лише заради демонстрації паралелізму** — з одним реальним `it()`-тестом для iOS справжня користь від паралелізації проявиться, коли з'явиться більше специфікацій; конфіг вже готовий до цього масштабування.
+
+**Allure HTML-звіт — окремий крок генерації, не автоматичний.** `reporters: [..., 'allure']` у конфізі пише лише **сирі JSON-результати** в `allure-results/` під час прогону. Перетворення цих сирих даних у переглядуваний HTML — окрема дія, через `allure-commandline` (`npm run report:generate` → `allure generate allure-results --clean -o allure-report`, `npm run report:open` для перегляду). І `allure-results/`, і `allure-report/` — згенеровані артефакти, покриті тим самим `allure-*/` патерном у `.gitignore` (Урок 6) — той самий принцип "не комітити те, що можна перегенерувати".
+
+**README.md як фінальний артефакт для стороннього читача.** На відміну від `docs/LEARNING_NOTES.md` (навчальний журнал, "чому і як ми до цього дійшли"), `README.md` — короткий, практичний документ для того, хто відкриває репозиторій вперше: стек, структура, чому Android/iOS тестують різні застосунки (Фаза 13), як налаштувати середовище й запустити тести, як згенерувати звіт, що робить CI. Різні аудиторії, різна мета — тримати обидва документи окремо, не змішувати.
+
+---
+
 ## Глосарій (доповнюється)
 
 | Термін | Означення |
@@ -501,13 +515,15 @@ curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
 | **bstack:options** | BrowserStack-специфічний namespace capability (deviceName, osVersion, userName, accessKey тощо) — аналог `appium:` префіксу, але для вендора BrowserStack |
 | **App Automate upload API** | `POST https://api-cloud.browserstack.com/app-automate/upload` — завантажує APK/IPA і повертає `bs://` app_url |
 | **Device build vs simulator build (iOS)** | Артефакт, зібраний для iOS Simulator, несумісний із хмарними сервісами реальних пристроїв (BrowserStack) — потрібен окремий `.ipa` device-build |
+| **specFileRetries** | Ретрай усього spec-файлу при падінні (на відміну від ретраю окремого `it()`) — стартує з чистого стану сесії/застосунку |
+| **allure-commandline** | Окремий пакет, що генерує переглядуваний HTML-звіт із сирих JSON-результатів у `allure-results/`; не робиться автоматично самим reporter'ом |
 
 ---
 
 ## Статус курсу
 
-- **Поточна фаза:** Фаза 14 — Продакшн-рівень (наступна)
-- **Останній завершений урок:** Фаза 13, Урок 15 — реальний BrowserStack, перший успішний iOS-тест на хмарному пристрої (`npm run wdio:ios`)
+- **Поточна фаза:** курс завершено (усі 14 фаз пройдено)
+- **Останній завершений урок:** Фаза 14, Урок 16 — specFileRetries, паралелізація по-платформно, Allure HTML-звіт (`npm run report:generate`/`report:open`), README.md
 - **Поточна структура:** усе під `src/` — `src/pageobjects/{BasePage.ts, android/*.ts, ios/*.ts}`, `src/config/{wdio.shared,wdio.android,wdio.ios}.conf.ts`, `src/constants.ts`, `src/specs/{android,ios}/*.e2e.ts`
 - **CI:** `.github/workflows/android.yml` — запускає `src/specs/android/{login,swipe,forms}.e2e.ts` на macOS-раннері з Android emulator; `web.e2e.ts` явно виключений (--exclude) через задокументоване обмеження Chromedriver
 - **Запуск локально:** `npm run wdio` → Android (`src/config/wdio.android.conf.ts`); `npm run wdio:ios` → BrowserStack iOS (`src/config/wdio.ios.conf.ts`), реально працює

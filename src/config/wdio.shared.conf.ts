@@ -14,6 +14,15 @@ export const config: Partial<WebdriverIO.Config> = {
   connectionRetryTimeout: 120000,
   connectionRetryCount: 3,
 
+  // Retry the whole spec file, not individual it() blocks: mobile
+  // flakiness (Phase 8 — animations, transient instrumentation hiccups)
+  // usually stems from timing around app/session state, and our
+  // beforeTest/afterTest already resets that state between files. A
+  // retried spec starts clean rather than re-running a single test
+  // mid-way through some partially-mutated app state.
+  specFileRetries: 1,
+  specFileRetriesDeferred: true,
+
   services: ["appium"],
   framework: "mocha",
   reporters: ["spec", ["allure", { outputDir: "allure-results" }]],

@@ -15,7 +15,12 @@ export const config: WebdriverIO.Config = {
 
   specs: ["../specs/ios/**/*.ts"],
 
-  maxInstances: 1,
+  // Unlike the single local Android emulator (capped at 1, Phase 10),
+  // BrowserStack allocates a fresh real device per session, so multiple
+  // spec files can genuinely run in parallel without contention. Capped
+  // at 5 to match a typical free/entry-level BrowserStack parallel-
+  // session limit — raise this if the account plan allows more.
+  maxInstances: 5,
 
   capabilities: [
     {
