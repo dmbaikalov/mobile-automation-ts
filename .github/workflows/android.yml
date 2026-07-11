@@ -1,0 +1,59 @@
+name: Android E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DEMO_APP_URL: https://github.com/webdriverio/native-demo-app/releases/download/v2.2.0/android.wdio.native.app.v2.2.0.apk
+  ANDROID_APP_PATH: apps/android.wdio.native.app.v2.2.0.apk
+
+jobs:
+  android-tests:
+    # GitHub-hosted Ubuntu runners lack the hardware virtualization (KVM)
+    # the Android emulator needs. macOS runners have it built in
+    # (Hypervisor.framework), so we run here instead of ubuntu-latest.
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download demo APK
+        run: |
+          mkdir -p apps
+          curl -L -o "$ANDROID_APP_PATH" "$DEMO_APP_URL"
+
+      - name: Run tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          # web.e2e.ts is excluded: switching into the WebView context needs
+          # a Chromedriver build matching the emulator's System WebView
+          # version, which isn't available on this image (see docs/LEARNING_NOTES.md,
+          # Phase 11). Native-app tests aren't affected.
+          script: npx wdio run ./src/config/wdio.android.conf.ts --exclude src/specs/android/web.e2e.ts
+        env:
+          ANDROID_APP_PATH: ${{ env.ANDROID_APP_PATH }}
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results/
+          retention-days: 14

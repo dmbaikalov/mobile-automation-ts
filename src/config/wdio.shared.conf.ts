@@ -4,7 +4,8 @@ export const config: Partial<WebdriverIO.Config> = {
   runner: "local",
   tsConfigPath: "../../tsconfig.json",
 
-  specs: ["../test/specs/**/*.ts"],
+  // specs is intentionally left unset here — wdio.android.conf.ts and
+  // wdio.ios.conf.ts each define their own platform-specific glob.
   exclude: [],
 
   maxInstances: 10,

@@ -5,6 +5,8 @@ export const config: WebdriverIO.Config = {
 
   port: 4723,
 
+  specs: ["../specs/android/**/*.ts"],
+
   // A single local emulator can only host one Appium session at a time;
   // running specs in parallel here causes UiAutomator2 instrumentation
   // crashes. Real parallelism needs multiple devices (Phase 14).

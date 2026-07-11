@@ -1,5 +1,5 @@
-import MainScreen from "../../pageobjects/MainScreen.js";
-import FormsScreen from "../../pageobjects/FormsScreen.js";
+import MainScreen from "../../pageobjects/android/MainScreen.js";
+import FormsScreen from "../../pageobjects/android/FormsScreen.js";
 
 describe("Forms screen", () => {
   it("should navigate to Forms page and enter text", async () => {

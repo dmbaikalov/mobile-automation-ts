@@ -1,5 +1,11 @@
-import BasePage from "./BasePage.js";
+import BasePage from "../BasePage.js";
 
+// iOS locators for the same demo app as Android's MainScreen. Kept as a
+// separate class per platform (even though several ids happen to match
+// Android's) rather than one shared Page Object with implicit
+// cross-platform assumptions — never verified against a real device/
+// simulator, since no Mac is available locally; only exercised via
+// BrowserStack once that's wired up (Phase 13).
 class MainScreen extends BasePage {
   get loginNavButton() {
     return $("~Login");

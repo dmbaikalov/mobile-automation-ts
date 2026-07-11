@@ -1,5 +1,5 @@
-import MainScreen from "../../pageobjects/MainScreen.js";
-import LoginScreen from "../../pageobjects/LoginScreen.js";
+import MainScreen from "../../pageobjects/android/MainScreen.js";
+import LoginScreen from "../../pageobjects/android/LoginScreen.js";
 
 describe("Login screen", () => {
   it("should navigate to login page and validate inputs", async () => {

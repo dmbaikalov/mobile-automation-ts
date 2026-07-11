@@ -386,6 +386,53 @@ src/
 
 ---
 
+## Фаза 12 — CI/CD
+
+### Урок 14: GitHub Actions для Android E2E тестів
+
+**Головний виклик порівняно з Playwright CI:** Playwright CI зазвичай працює на звичайному `ubuntu-latest` (`playwright install` browsers). Android emulator в CI вимагає апаратної віртуалізації (KVM), якої **GitHub-хостовані Ubuntu-раннери не мають за замовчуванням**.
+
+**Рішення: `runs-on: macos-latest`.** macOS-раннери GitHub Actions мають вбудовану апаратну віртуалізацію (Hypervisor.framework) — контрінтуїтивно, але це стандартна практика для Android emulator у CI на GitHub-hosted runners.
+
+**Дії workflow (`.github/workflows/android.yml`):**
+1. Checkout + Node.js setup + `npm ci`.
+2. Завантаження demo APK через `curl` з публічного GitHub Release URL (не з репозиторію — APK не комітиться, той самий принцип з Уроку 6: артефакт білду, а не source of truth).
+3. **`reactivecircus/android-emulator-runner@v2`** — перевірений сторонній action, що інкапсулює створення AVD, апаратне прискорення, очікування завантаження емулятора. Параметри (`api-level: 33`, `target: google_apis`, `arch: x86_64`) — ті самі, що обирались вручну в Android Studio Device Manager (Фаза 2).
+4. `actions/upload-artifact` для `allure-results/` з `if: always()` — звіт зберігається навіть при падінні тестів.
+
+**Явне виключення `web.e2e.ts` з CI-запуску** (`--exclude`), із коментарем у самому workflow-файлі, що пояснює причину (невідповідність Chromedriver ↔ System WebView, задокументовано в Фазі 11). Явне, задокументоване виключення — принципово інше рішення, ніж мовчазний червоний CI: майбутній інженер одразу розуміє, чому саме цей тест не запускається, а не думає, що це забутий чи випадково зламаний крок.
+
+**Конфігураційні змінні на рівні workflow** (`env.DEMO_APP_URL`, `env.ANDROID_APP_PATH`) замість хардкоду всередині кроків — той самий принцип, що й локальний `.env`: змінити версію APK можна одним рядком нагорі файлу.
+
+---
+
+## Фаза 10 (продовження) — Симетрична структура android/ios
+
+**Причина:** підготовка до iOS (Фаза 13, реальне виконання лише через BrowserStack — немає Mac) поставила архітектурне питання: чи писати крос-платформні Page Objects з умовним кодом усередині, чи тримати платформи явно окремо. **Рішення — завжди окремі Page Objects на платформу**, навіть коли локатори випадково збігаються (React Native demo-застосунок часто дає однакові accessibility id на обох платформах, але покладатись на це — прихований, неявний зв'язок, який одного разу мовчки зламається).
+
+**Фінальна структура:**
+```
+src/
+  pageobjects/
+    BasePage.ts        — спільний базовий клас (реально платформо-незалежний)
+    android/{MainScreen,LoginScreen,SwipeScreen,FormsScreen,WebScreen}.ts
+    ios/{MainScreen,LoginScreen}.ts
+  specs/
+    android/{login,swipe,forms,web}.e2e.ts
+    ios/login.e2e.ts
+  config/{wdio.shared,wdio.android,wdio.ios}.conf.ts
+  constants.ts
+```
+`src/test/specs/` спрощено до `src/specs/` — проміжна тека `test/` була зайвою, коли й так усе під `src/`.
+
+**iOS-конфіг (`wdio.ios.conf.ts`)** дзеркалить `wdio.android.conf.ts`: `platformName: 'iOS'`, `appium:automationName: 'XCUITest'`, `IOS_APP_PATH`/`IOS_DEVICE_NAME`/`IOS_PLATFORM_VERSION` з `.env` (вже закладені в `.env.example` ще в Уроці 6). **Ніколи не запускався й не буде запускатись локально** — немає Mac/iOS simulator; призначений виключно для BrowserStack (Фаза 13).
+
+**Важливий інцидент із `--exclude` vs `specs`:** початкова спроба виключити `ios/`-спеки з Android-прогону через `exclude: [...]` у `wdio.android.conf.ts` не спрацювала — коли той самий прогін одночасно викликався з CLI-прапорцем `--exclude web.e2e.ts` (тестуючи інше), CLI-прапорець **перевизначив**, а не доповнив `exclude` з конфігу, і `ios/login.e2e.ts` реально потрапив у Android-прогін (і впав би, якби мав капабіліті-конфлікт). **Виправлення — явний allowlist через `specs: ["../specs/android/**/*.ts"]`** замість `exclude`-blocklist: allowlist не залежить від того, які додаткові CLI-прапорці хтось передасть під час запуску, тоді як exclude-підхід крихкий саме тому, що різні джерела виключень (конфіг + CLI) можуть конфліктувати за пріоритетом.
+
+**Урок:** коли потрібно гарантовано обмежити набір файлів (а не просто щось прибрати з уже широкого списку), allowlist (`specs`) надійніший за blocklist (`exclude`) — особливо коли існує кілька джерел конфігурації (файл + CLI), які можуть накладатись непередбачувано.
+
+---
+
 ## Глосарій (доповнюється)
 
 | Термін | Означення |
@@ -426,10 +473,11 @@ src/
 
 ## Статус курсу
 
-- **Поточна фаза:** Фаза 12 — CI/CD (наступна)
-- **Останній завершений урок:** Фаза 10 (продовження) — реструктуризація коду фреймворку під `src/`
-- **Поточна структура:** усе під `src/` — `src/pageobjects/*.ts`, `src/config/{wdio.shared,wdio.android}.conf.ts`, `src/constants.ts`, `src/test/specs/{login,swipe,forms,web}.e2e.ts`
-- **Запуск:** `npm run wdio` → `wdio run ./src/config/wdio.android.conf.ts`
+- **Поточна фаза:** Фаза 13 — Хмарні пристрої / BrowserStack (наступна)
+- **Останній завершений урок:** Фаза 10 (продовження) — симетрична android/ios структура, iOS-конфіг + Page Objects (код лише, без реального запуску), allowlist через `specs` замість `exclude`
+- **Поточна структура:** усе під `src/` — `src/pageobjects/{BasePage.ts, android/*.ts, ios/*.ts}`, `src/config/{wdio.shared,wdio.android,wdio.ios}.conf.ts`, `src/constants.ts`, `src/specs/{android,ios}/*.e2e.ts`
+- **CI:** `.github/workflows/android.yml` — запускає `src/specs/android/{login,swipe,forms}.e2e.ts` на macOS-раннері з Android emulator; `web.e2e.ts` явно виключений (--exclude) через задокументоване обмеження Chromedriver
+- **Запуск локально:** `npm run wdio` → Android (`src/config/wdio.android.conf.ts`); `npm run wdio:ios` → iOS-конфіг (не запускається без BrowserStack, Фаза 13)
 - **Відомий блокер:** `web.e2e.ts` не проходить у поточному середовищі через невідповідність версії Chromedriver ↔ System WebView на емуляторі (не блокує решту курсу)
 - **Робочий AVD для курсу:** Pixel 7 Pro (2), API 33 (Android 13), Google APIs image, serial `emulator-5554`
 - **Appium:** v3.5.2, драйвери `uiautomator2@7.5.1` + `chromium@2.2.5` (автозавантажений), сервер на `http://127.0.0.1:4723`
