@@ -301,6 +301,24 @@ test/pageobjects/LoginScreen.ts  — екран форми логіну, waitFor
 
 ---
 
+## Фаза 10 — Архітектура фреймворку
+
+### Урок 12: Базовий конфіг + конфіги-розширення по середовищах
+
+**Проблема:** один монолітний `wdio.conf.ts` не масштабується на кілька середовищ (local Android / CI / BrowserStack для iOS, Фаза 13) без дублювання спільних опцій (specs, framework, reporters, hooks).
+
+**Патерн:** базовий конфіг зі спільним, плюс тонкі конфіги-розширення на середовище:
+```
+wdio.shared.conf.ts   — спільне: specs, framework, reporters, beforeTest/afterTest hooks
+wdio.android.conf.ts  — розширює shared: port, capabilities для локального Android, maxInstances
+wdio.browserstack.conf.ts (Фаза 13) — розширює shared: hostname, bstack:options, BrowserStack креденшели
+```
+Розширення через спред об'єкта (`...sharedConfig`) і перевизначення того, що відрізняється. Запуск — явним вказанням файлу: `wdio run ./wdio.android.conf.ts`.
+
+**Виправлення `maxInstances` під реальне обмеження:** shared-конфіг тримає `maxInstances: 10` як загальний дефолт (доречний для BrowserStack, де паралелити можна на кілька хмарних пристроїв), але Android-конфіг **перевизначає на `maxInstances: 1`** — з одним локальним фізичним/віртуальним пристроєм паралельні воркери конфліктують за UiAutomator2 instrumentation-процес (крах, побачений у Фазі 9). Перевизначення в конкретному конфізі середовища, а не в shared, — приклад того, що обмеження паралелізму специфічне для середовища виконання, не універсальне правило проєкту.
+
+---
+
 ## Глосарій (доповнюється)
 
 | Термін | Означення |
@@ -339,9 +357,10 @@ test/pageobjects/LoginScreen.ts  — екран форми логіну, waitFor
 
 ## Статус курсу
 
-- **Поточна фаза:** Фаза 10 — Архітектура фреймворку (наступна)
-- **Останній завершений урок:** Фаза 9, Урок 11 (POM-архітектура для всіх трьох екранів — MainScreen/LoginScreen/SwipeScreen/FormsScreen, глобальні beforeTest/afterTest, паралельні сесії на одному емуляторі — ризиковано, не гарантовано стабільно)
+- **Поточна фаза:** Фаза 12 — CI/CD (пропущено Фазу 11 наразі, повернемось пізніше)
+- **Останній завершений урок:** Фаза 10, Урок 12 (shared/android конфіги, maxInstances=1 для локального емулятора)
 - **Поточна структура POM:** `test/pageobjects/{BasePage,MainScreen,LoginScreen,SwipeScreen,FormsScreen}.ts`, `test/specs/{login,swipe,forms}.e2e.ts`
+- **Конфіги:** `wdio.shared.conf.ts` (базовий) + `wdio.android.conf.ts` (локальний Android, `npm run wdio` запускає саме його)
 - **Робочий AVD для курсу:** Pixel 7 Pro (2), API 33 (Android 13), Google APIs image, serial `emulator-5554`
 - **Appium:** v3.5.2, драйвери `uiautomator2@7.5.1` + `chromium@2.2.5` (автозавантажений), сервер на `http://127.0.0.1:4723`
 - **Цільові версії стеку (перевірено 2026-07-11, актуальні на npm):** Appium `3.5.2`, WebdriverIO (`webdriverio`/`@wdio/cli`) `9.29.1`. Курс свідомо орієнтується на ці мажорні версії, а не на "Appium 2.x", згаданий у початковому ТЗ — стек буде звірятись з актуальними релізами на важливих контрольних точках курсу.
