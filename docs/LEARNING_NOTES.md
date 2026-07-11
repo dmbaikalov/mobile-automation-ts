@@ -352,6 +352,30 @@ await driver.execute('mobile: setConnectivity', { wifi: false, data: false })
 
 ---
 
+## Фаза 10 (продовження) — Реструктуризація під `src/`
+
+**Причина:** відокремити код самого фреймворку (page objects, конфіги, константи, майбутні утиліти) від тестів — типова структура для production-репозиторіїв, де `src/` = перевикористовуваний код бібліотеки/фреймворку, а `test/` = те, що цей код використовує.
+
+**Нова структура:**
+```
+src/
+  pageobjects/{BasePage,MainScreen,LoginScreen,SwipeScreen,FormsScreen,WebScreen}.ts
+  config/{wdio.shared.conf,wdio.android.conf}.ts
+  constants.ts
+test/
+  specs/{login,swipe,forms,web}.e2e.ts
+```
+
+**Що довелось виправити після переносу (`git mv`, з історією):**
+- Імпорти в spec-файлах: `../pageobjects/...` → `../../src/pageobjects/...` (глибина шляху змінилась).
+- `wdio.shared.conf.ts`: імпорт констант `./test/constants.js` → `../constants.js`; `specs`/`tsConfigPath` стали відносними до нового розташування конфігу (`../../test/specs/**/*.ts`, `../../tsconfig.json`) — WebdriverIO резолвить ці шляхи відносно файлу конфігу, що реально виконується, тому переміщення конфігу в підтеку вимагає підняти всі відносні шляхи на два рівні.
+- `tsconfig.json`: `include` посилався на вже неіснуючий корінний `wdio.conf.ts` — замінено на `["test", "src"]`.
+- `package.json`: скрипт `wdio` тепер вказує на `./src/config/wdio.android.conf.ts`.
+
+**Урок:** переміщення конфігураційного файлу в підтеку — це не просто "перенести файл", а перевірити **кожен відносний шлях усередині нього** окремо, оскільки різні опції (`tsConfigPath`, `specs`, локальні імпорти) можуть мати різні бази відліку (відносно файлу конфігу vs відносно кореня запуску CLI).
+
+---
+
 ## Глосарій (доповнюється)
 
 | Термін | Означення |
@@ -393,9 +417,9 @@ await driver.execute('mobile: setConnectivity', { wifi: false, data: false })
 ## Статус курсу
 
 - **Поточна фаза:** Фаза 12 — CI/CD (наступна)
-- **Останній завершений урок:** Фаза 11, Урок 13 (перемикання контексту Native/WebView, дозволи, мережеві умови; WebView-тест заблокований версією Chromedriver у поточному середовищі — відома, задокументована межа)
-- **Поточна структура POM:** `test/pageobjects/{BasePage,MainScreen,LoginScreen,SwipeScreen,FormsScreen,WebScreen}.ts`, `test/specs/{login,swipe,forms,web}.e2e.ts`
-- **Конфіги:** `wdio.shared.conf.ts` (базовий) + `wdio.android.conf.ts` (локальний Android, `npm run wdio` запускає саме його)
+- **Останній завершений урок:** Фаза 10 (продовження) — реструктуризація коду фреймворку під `src/`
+- **Поточна структура:** `src/pageobjects/*.ts`, `src/config/{wdio.shared,wdio.android}.conf.ts`, `src/constants.ts`, `test/specs/{login,swipe,forms,web}.e2e.ts`
+- **Запуск:** `npm run wdio` → `wdio run ./src/config/wdio.android.conf.ts`
 - **Відомий блокер:** `web.e2e.ts` не проходить у поточному середовищі через невідповідність версії Chromedriver ↔ System WebView на емуляторі (не блокує решту курсу)
 - **Робочий AVD для курсу:** Pixel 7 Pro (2), API 33 (Android 13), Google APIs image, serial `emulator-5554`
 - **Appium:** v3.5.2, драйвери `uiautomator2@7.5.1` + `chromium@2.2.5` (автозавантажений), сервер на `http://127.0.0.1:4723`

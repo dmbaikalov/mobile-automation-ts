@@ -1,10 +1,10 @@
-import { APP_PACKAGE } from "./test/constants.js";
+import { APP_PACKAGE } from "../constants.js";
 
 export const config: Partial<WebdriverIO.Config> = {
   runner: "local",
-  tsConfigPath: "./tsconfig.json",
+  tsConfigPath: "../../tsconfig.json",
 
-  specs: ["./test/specs/**/*.ts"],
+  specs: ["../../test/specs/**/*.ts"],
   exclude: [],
 
   maxInstances: 10,
