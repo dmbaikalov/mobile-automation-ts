@@ -1,3 +1,5 @@
+import { APP_PACKAGE } from "./test/constants.js";
+
 export const config: WebdriverIO.Config = {
   //
   // ====================
@@ -210,8 +212,9 @@ export const config: WebdriverIO.Config = {
   /**
    * Function to be executed before a test (in Mocha/Jasmine) starts.
    */
-  // beforeTest: function (test, context) {
-  // },
+  beforeTest: async function () {
+    await driver.activateApp(APP_PACKAGE);
+  },
   /**
    * Hook that gets executed _before_ a hook within the suite starts (e.g. runs before calling
    * beforeEach in Mocha)
@@ -242,6 +245,8 @@ export const config: WebdriverIO.Config = {
     if (!passed) {
       await browser.takeScreenshot();
     }
+
+    await driver.terminateApp(APP_PACKAGE);
   },
 
   /**
