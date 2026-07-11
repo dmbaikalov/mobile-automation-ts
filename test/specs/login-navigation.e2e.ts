@@ -50,4 +50,24 @@ describe("Sanity check", () => {
 
     await expect(nextCardText).toBeDisplayed();
   });
+
+  it("should navigate to Forms page", async () => {
+    const mainPageFormsBtn = $("~Forms");
+    const textToEnter = "Hello World!";
+
+    const inputField = $("~text-input");
+
+    await mainPageFormsBtn.click();
+
+    await inputField.setValue(textToEnter);
+
+    await browser.waitUntil(
+      async () => (await inputField.getText()) === textToEnter,
+      {
+        timeout: 10000,
+        timeoutMsg: "No such text in the input",
+        interval: 1000,
+      },
+    );
+  });
 });
