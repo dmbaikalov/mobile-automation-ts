@@ -319,6 +319,39 @@ wdio.browserstack.conf.ts (Фаза 13) — розширює shared: hostname, b
 
 ---
 
+## Фаза 11 — Просунуті можливості
+
+### Урок 13: Перемикання контексту (Native ↔ WebView), дозволи, мережеві умови
+
+**Перемикання контексту:**
+```ts
+const contexts = await driver.getContexts()   // ['NATIVE_APP', 'WEBVIEW_com.wdiodemoapp']
+await driver.switchContext(webviewContext)     // тепер $() шукає через CSS/XPath, як у Playwright
+await driver.switchContext('NATIVE_APP')
+```
+**Правило:** ніколи не хардкодити повну назву WEBVIEW-контексту (`WEBVIEW_com.wdiodemoapp`) — вона залежить від package name і може відрізнятись; шукати за префіксом `startsWith('WEBVIEW')` через `getContexts()`.
+
+**Повторна помилка вгадування локатора (навіть у мене):** `$("~Web")` для кнопки навігації — здогадка за видимим текстом, а реальний `content-desc="Webview"` (побачений раніше в Inspector, Урок 6). Підтверджує: перевірка в Inspector потрібна щоразу, досвід не звільняє від цього кроку.
+
+**WebView-контекст не з'являється миттєво після кліку** — та сама тема Фази 8: потрібен `waitUntil()`, що чекає появи `WEBVIEW*` контексту в `getContexts()`, перш ніж перемикатись, інакше `switchContext` наштовхується на власну явну помилку "No WEBVIEW context found" (перевірка спрацювала як задумано, а не крашнулась незрозуміло).
+
+**Інфраструктурне обмеження середовища, знайдене на практиці:** навіть після появи WEBVIEW-контексту, `switchContext` впав з `No Chromedriver found that can automate Chrome '109.0.5414'`. Chromedriver-версії строго прив'язані до конкретної версії Chrome/System WebView на пристрої — застарілий WebView на емуляторі не має відповідного локального chromedriver. Це не помилка коду перемикання контексту (архітектурно правильний), а окрема інфраструктурна проблема середовища (потрібне оновлення System WebView або `chromedriver_autodownload` capability) — задокументовано як відома межа поточного оточення, не вирішувалось негайно, бо немає практичної потреби в реальному WebView-контенті цього demo-застосунку.
+
+**Дозволи (permissions) — мобільна команда, а не клік по системному діалогу:**
+```ts
+await driver.execute('mobile: changePermissions', {
+  permissions: ['android.permission.CAMERA'], action: 'grant', appPackage: APP_PACKAGE,
+})
+```
+Системні діалоги дозволів мають непередбачуваний текст/verstka залежно від locale/версії Android — автоматизувати їх напряму як звичайні UI-елементи крихко.
+
+**Мережеві умови:**
+```ts
+await driver.execute('mobile: setConnectivity', { wifi: false, data: false })
+```
+
+---
+
 ## Глосарій (доповнюється)
 
 | Термін | Означення |
@@ -352,15 +385,18 @@ wdio.browserstack.conf.ts (Фаза 13) — розширює shared: hostname, b
 | **getValue() vs getText()** | `getValue()` — спеціалізований метод для input-полів; `getText()` іноді повертає порожній рядок саме на `EditText` |
 | **beforeTest / afterTest (WebdriverIO)** | Framework-агностичні глобальні хуки в `wdio.conf.ts`, найближчий аналог Mocha beforeEach/afterEach, але без залежності від конкретного test framework |
 | **Page Object singleton** | `export default new ScreenClass()` — сторінка застосунку експортується як готовий екземпляр, не клас |
+| **Context (Native/WebView)** | `NATIVE_APP` vs `WEBVIEW_*` — режим інтерпретації локаторів; перемикається через `driver.switchContext()`, список доступних — `driver.getContexts()` |
+| **Chromedriver version binding** | Chromedriver суворо прив'язаний до конкретної версії Chrome/System WebView на пристрої — розбіжність версій блокує switchContext на WebView |
 
 ---
 
 ## Статус курсу
 
-- **Поточна фаза:** Фаза 12 — CI/CD (пропущено Фазу 11 наразі, повернемось пізніше)
-- **Останній завершений урок:** Фаза 10, Урок 12 (shared/android конфіги, maxInstances=1 для локального емулятора)
-- **Поточна структура POM:** `test/pageobjects/{BasePage,MainScreen,LoginScreen,SwipeScreen,FormsScreen}.ts`, `test/specs/{login,swipe,forms}.e2e.ts`
+- **Поточна фаза:** Фаза 12 — CI/CD (наступна)
+- **Останній завершений урок:** Фаза 11, Урок 13 (перемикання контексту Native/WebView, дозволи, мережеві умови; WebView-тест заблокований версією Chromedriver у поточному середовищі — відома, задокументована межа)
+- **Поточна структура POM:** `test/pageobjects/{BasePage,MainScreen,LoginScreen,SwipeScreen,FormsScreen,WebScreen}.ts`, `test/specs/{login,swipe,forms,web}.e2e.ts`
 - **Конфіги:** `wdio.shared.conf.ts` (базовий) + `wdio.android.conf.ts` (локальний Android, `npm run wdio` запускає саме його)
+- **Відомий блокер:** `web.e2e.ts` не проходить у поточному середовищі через невідповідність версії Chromedriver ↔ System WebView на емуляторі (не блокує решту курсу)
 - **Робочий AVD для курсу:** Pixel 7 Pro (2), API 33 (Android 13), Google APIs image, serial `emulator-5554`
 - **Appium:** v3.5.2, драйвери `uiautomator2@7.5.1` + `chromium@2.2.5` (автозавантажений), сервер на `http://127.0.0.1:4723`
 - **Цільові версії стеку (перевірено 2026-07-11, актуальні на npm):** Appium `3.5.2`, WebdriverIO (`webdriverio`/`@wdio/cli`) `9.29.1`. Курс свідомо орієнтується на ці мажорні версії, а не на "Appium 2.x", згаданий у початковому ТЗ — стек буде звірятись з актуальними релізами на важливих контрольних точках курсу.

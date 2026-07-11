@@ -6,7 +6,7 @@ class MainScreen extends BasePage {
   }
 
   get webNavButton() {
-    return $("~Web");
+    return $("~Webview");
   }
 
   get formsNavButton() {
