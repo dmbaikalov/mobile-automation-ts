@@ -1,5 +1,5 @@
-import MainScreen from "../../src/pageobjects/MainScreen.js";
-import FormsScreen from "../../src/pageobjects/FormsScreen.js";
+import MainScreen from "../../pageobjects/MainScreen.js";
+import FormsScreen from "../../pageobjects/FormsScreen.js";
 
 describe("Forms screen", () => {
   it("should navigate to Forms page and enter text", async () => {

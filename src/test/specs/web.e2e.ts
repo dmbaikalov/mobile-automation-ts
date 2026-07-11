@@ -1,5 +1,5 @@
-import MainScreen from "../../src/pageobjects/MainScreen.js";
-import WebScreen from "../../src/pageobjects/WebScreen.js";
+import MainScreen from "../../pageobjects/MainScreen.js";
+import WebScreen from "../../pageobjects/WebScreen.js";
 
 describe("Web screen", () => {
   it("should switch between native and webview contexts", async () => {

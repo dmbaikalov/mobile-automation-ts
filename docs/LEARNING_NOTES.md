@@ -374,6 +374,16 @@ test/
 
 **Урок:** переміщення конфігураційного файлу в підтеку — це не просто "перенести файл", а перевірити **кожен відносний шлях усередині нього** окремо, оскільки різні опції (`tsConfigPath`, `specs`, локальні імпорти) можуть мати різні бази відліку (відносно файлу конфігу vs відносно кореня запуску CLI).
 
+**Друга ітерація структури:** за подальшим уточненням увесь код проєкту, включно з самими spec-файлами, переїхав під єдиний корінь `src/` (`src/test/specs/`, а не окремий кореневий `test/`) — щоб весь код проєкту жив в одному місці. Фінальна структура:
+```
+src/
+  pageobjects/*.ts
+  config/{wdio.shared,wdio.android}.conf.ts
+  constants.ts
+  test/specs/{login,swipe,forms,web}.e2e.ts
+```
+Знову довелось перевірити всі відносні шляхи: імпорти в spec-файлах (`../../pageobjects/...` — вийти з `specs/`, вийти з `test/`), `specs` у `wdio.shared.conf.ts` (`../test/specs/**/*.ts` — на один рівень менше, ніж коли specs були поза `src/`), `tsconfig.json` `include` (лише `["src"]`).
+
 ---
 
 ## Глосарій (доповнюється)
@@ -418,7 +428,7 @@ test/
 
 - **Поточна фаза:** Фаза 12 — CI/CD (наступна)
 - **Останній завершений урок:** Фаза 10 (продовження) — реструктуризація коду фреймворку під `src/`
-- **Поточна структура:** `src/pageobjects/*.ts`, `src/config/{wdio.shared,wdio.android}.conf.ts`, `src/constants.ts`, `test/specs/{login,swipe,forms,web}.e2e.ts`
+- **Поточна структура:** усе під `src/` — `src/pageobjects/*.ts`, `src/config/{wdio.shared,wdio.android}.conf.ts`, `src/constants.ts`, `src/test/specs/{login,swipe,forms,web}.e2e.ts`
 - **Запуск:** `npm run wdio` → `wdio run ./src/config/wdio.android.conf.ts`
 - **Відомий блокер:** `web.e2e.ts` не проходить у поточному середовищі через невідповідність версії Chromedriver ↔ System WebView на емуляторі (не блокує решту курсу)
 - **Робочий AVD для курсу:** Pixel 7 Pro (2), API 33 (Android 13), Google APIs image, serial `emulator-5554`

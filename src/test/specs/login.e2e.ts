@@ -1,5 +1,5 @@
-import MainScreen from "../../src/pageobjects/MainScreen.js";
-import LoginScreen from "../../src/pageobjects/LoginScreen.js";
+import MainScreen from "../../pageobjects/MainScreen.js";
+import LoginScreen from "../../pageobjects/LoginScreen.js";
 
 describe("Login screen", () => {
   it("should navigate to login page and validate inputs", async () => {

@@ -4,7 +4,7 @@ export const config: Partial<WebdriverIO.Config> = {
   runner: "local",
   tsConfigPath: "../../tsconfig.json",
 
-  specs: ["../../test/specs/**/*.ts"],
+  specs: ["../test/specs/**/*.ts"],
   exclude: [],
 
   maxInstances: 10,
