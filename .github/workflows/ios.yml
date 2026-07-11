@@ -1,0 +1,52 @@
+name: iOS E2E Tests (BrowserStack)
+
+on:
+  workflow_call:
+    secrets:
+      BROWSERSTACK_USERNAME:
+        required: true
+      BROWSERSTACK_ACCESS_KEY:
+        required: true
+
+jobs:
+  ios-tests:
+    # No emulator/simulator runs here — the actual device lives on
+    # BrowserStack's cloud, so a plain Ubuntu runner is enough; this job
+    # only needs to send Appium commands over HTTPS.
+    runs-on: ubuntu-latest
+
+    env:
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Upload app to BrowserStack and capture its app_url
+        run: |
+          APP_URL=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/upload" \
+            -d '{"url": "https://www.browserstack.com/app-automate/sample-apps/ios/BrowserStack-SampleApp.ipa"}' \
+            -H "Content-Type: application/json" | node -pe 'JSON.parse(require("fs").readFileSync(0)).app_url')
+          echo "BROWSERSTACK_IOS_APP_URL=$APP_URL" >> "$GITHUB_ENV"
+
+      - name: Run tests on BrowserStack
+        run: npm run wdio:ios
+
+      - name: Upload Allure results (ios)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-ios
+          path: allure-results/
+          retention-days: 14

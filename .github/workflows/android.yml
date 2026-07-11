@@ -1,10 +1,7 @@
 name: Android E2E Tests
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_call:
 
 env:
   DEMO_APP_URL: https://github.com/webdriverio/native-demo-app/releases/download/v2.2.0/android.wdio.native.app.v2.2.0.apk
@@ -50,10 +47,13 @@ jobs:
         env:
           ANDROID_APP_PATH: ${{ env.ANDROID_APP_PATH }}
 
-      - name: Upload Allure results
+      # Uploaded under a platform-specific name so the aggregator job in
+      # mobile-tests.yml can download both Android's and iOS's results
+      # without one overwriting the other.
+      - name: Upload Allure results (android)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allure-results
+          name: allure-results-android
           path: allure-results/
           retention-days: 14

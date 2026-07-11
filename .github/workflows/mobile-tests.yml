@@ -1,0 +1,63 @@
+name: Mobile E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  android:
+    uses: ./.github/workflows/android.yml
+
+  ios:
+    uses: ./.github/workflows/ios.yml
+    secrets:
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+
+  # Runs regardless of whether android/ios passed or failed, so a report
+  # is always produced — `if: always()` on the job, plus each upload
+  # step above already using `if: always()` to publish partial results
+  # even when a platform's tests failed.
+  combined-report:
+    needs: [android, ios]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Android results
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results-android
+          path: allure-results
+        continue-on-error: true
+
+      - name: Download iOS results
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results-ios
+          path: allure-results
+        continue-on-error: true
+
+      - name: Generate combined HTML report
+        run: npm run report:generate
+
+      - name: Upload combined report
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-combined
+          path: allure-report/
+          retention-days: 14

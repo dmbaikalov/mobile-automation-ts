@@ -474,6 +474,27 @@ curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
 
 **README.md як фінальний артефакт для стороннього читача.** На відміну від `docs/LEARNING_NOTES.md` (навчальний журнал, "чому і як ми до цього дійшли"), `README.md` — короткий, практичний документ для того, хто відкриває репозиторій вперше: стек, структура, чому Android/iOS тестують різні застосунки (Фаза 13), як налаштувати середовище й запустити тести, як згенерувати звіт, що робить CI. Різні аудиторії, різна мета — тримати обидва документи окремо, не змішувати.
 
+### Урок 17: Композиція CI через reusable workflows + об'єднаний звіт
+
+**Проблема:** початковий `android.yml` мав власний `on: push/pull_request` — окремий, самодостатній workflow. Коли додався iOS (BrowserStack), природний наступний крок — не другий незалежний top-level workflow, а **композиція**: один вхідний файл, що керує обома платформами і зводить результати разом.
+
+**Патерн — reusable workflows (`workflow_call`):**
+```
+mobile-tests.yml   — головний, on: push/pull_request, викликає:
+  android.yml        — on: workflow_call (більше не запускається сам по собі)
+  ios.yml             — on: workflow_call, приймає BrowserStack секрети явно
+  combined-report     — needs: [android, ios], if: always()
+```
+`android.yml`/`ios.yml` перестали мати власний тригер (`on: push`) — вони існують лише як виклики з головного файлу (`uses: ./.github/workflows/android.yml`).
+
+**iOS-job працює на звичайному `ubuntu-latest`, не macOS** — на відміну від Android, тут немає локального емулятора/симулятора: сам пристрій живе на BrowserStack, GitHub-раннер лише надсилає Appium-команди по HTTPS. Апаратна віртуалізація тут узагалі не при чому.
+
+**`.env` не існує в CI-середовищі** (gitignored, це секрет локальної машини) — тому `ios.yml` завантажує застосунок на BrowserStack і отримує `app_url` **динамічно, під час самого прогону**, записуючи результат у `$GITHUB_ENV`, а не покладаючись на статичне значення з файлу.
+
+**Об'єднання звітів з двох джерел:** обидва платформо-специфічні job'и завантажують свої `allure-results` під **різними** назвами артефактів (`allure-results-android`, `allure-results-ios`) — інакше другий `download-artifact` у `combined-report` перезаписав би перший, бо обидва розпаковуються в ту саму теку `allure-results/`. `continue-on-error: true` на кроках завантаження — якщо одна з платформ впала ще до створення власного артефакту, звіт все одно генерується з того, що реально є, замість повного провалу `combined-report`.
+
+**`if: always()` на рівні job'у й на кожному кроці завантаження артефакту** — звіт має публікуватись незалежно від того, впали тести на одній із платформ чи ні; провалений тест — це інформація для звіту, не привід взагалі не мати звіту.
+
 ---
 
 ## Глосарій (доповнюється)
@@ -517,15 +538,17 @@ curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
 | **Device build vs simulator build (iOS)** | Артефакт, зібраний для iOS Simulator, несумісний із хмарними сервісами реальних пристроїв (BrowserStack) — потрібен окремий `.ipa` device-build |
 | **specFileRetries** | Ретрай усього spec-файлу при падінні (на відміну від ретраю окремого `it()`) — стартує з чистого стану сесії/застосунку |
 | **allure-commandline** | Окремий пакет, що генерує переглядуваний HTML-звіт із сирих JSON-результатів у `allure-results/`; не робиться автоматично самим reporter'ом |
+| **Reusable workflow (`workflow_call`)** | GitHub Actions workflow без власного `push`/`pull_request` тригера, що викликається з іншого workflow через `uses: ./.github/workflows/name.yml` |
+| **$GITHUB_ENV** | Спеціальний файл у GitHub Actions, запис у який (`echo "KEY=value" >> "$GITHUB_ENV"`) робить змінну доступною в наступних кроках того самого job |
 
 ---
 
 ## Статус курсу
 
-- **Поточна фаза:** курс завершено (усі 14 фаз пройдено)
-- **Останній завершений урок:** Фаза 14, Урок 16 — specFileRetries, паралелізація по-платформно, Allure HTML-звіт (`npm run report:generate`/`report:open`), README.md
+- **Поточна фаза:** курс завершено (усі 14 фаз пройдено), плюс Урок 17 (композиція CI) зверху
+- **Останній завершений урок:** Урок 17 — reusable workflows (android.yml + ios.yml через workflow_call), об'єднаний Allure-звіт у combined-report job
 - **Поточна структура:** усе під `src/` — `src/pageobjects/{BasePage.ts, android/*.ts, ios/*.ts}`, `src/config/{wdio.shared,wdio.android,wdio.ios}.conf.ts`, `src/constants.ts`, `src/specs/{android,ios}/*.e2e.ts`
-- **CI:** `.github/workflows/android.yml` — запускає `src/specs/android/{login,swipe,forms}.e2e.ts` на macOS-раннері з Android emulator; `web.e2e.ts` явно виключений (--exclude) через задокументоване обмеження Chromedriver
+- **CI:** `.github/workflows/mobile-tests.yml` — головний тригер (push/PR), викликає `android.yml` (macOS-раннер, Android emulator) і `ios.yml` (ubuntu-latest, BrowserStack) паралельно через `workflow_call`, потім `combined-report` job зводить обидва `allure-results` в один HTML-звіт; `web.e2e.ts` явно виключений з Android-прогону через задокументоване обмеження Chromedriver
 - **Запуск локально:** `npm run wdio` → Android (`src/config/wdio.android.conf.ts`); `npm run wdio:ios` → BrowserStack iOS (`src/config/wdio.ios.conf.ts`), реально працює
 - **iOS демо-застосунок:** офіційний BrowserStack Sample App (`com.browserstack.Sample-iOS`) — навмисно інший застосунок, ніж Android's `webdriverio/native-demo-app` (немає device-build native-demo-app для реальних iOS-пристроїв)
 - **Відомий блокер:** `web.e2e.ts` не проходить у поточному середовищі через невідповідність версії Chromedriver ↔ System WebView на емуляторі (не блокує решту курсу)

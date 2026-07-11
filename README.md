@@ -78,7 +78,11 @@ npm run report:open
 
 ## CI
 
-`.github/workflows/android.yml` runs the Android suite on every push/PR to `main`, on a macOS runner (GitHub-hosted Ubuntu runners lack the hardware virtualization the Android emulator needs). Allure results are uploaded as a build artifact. The `web.e2e.ts` spec is excluded from CI — see `docs/LEARNING_NOTES.md` (Phase 11) for why.
+`.github/workflows/mobile-tests.yml` is the entry point on every push/PR to `main`. It calls two reusable workflows in parallel and then merges their results:
+
+- **`android.yml`** — Android suite on a macOS runner (GitHub-hosted Ubuntu runners lack the hardware virtualization the Android emulator needs). The `web.e2e.ts` spec is excluded — see `docs/LEARNING_NOTES.md` (Phase 11) for why.
+- **`ios.yml`** — iOS suite against BrowserStack, on a plain Ubuntu runner (no local device involved; this job just talks to BrowserStack's cloud over HTTPS). Needs the `BROWSERSTACK_USERNAME`/`BROWSERSTACK_ACCESS_KEY` repository secrets.
+- **`combined-report`** — downloads both platforms' `allure-results` artifacts, generates one merged HTML report, and uploads it as `allure-report-combined`. Runs even if one platform's tests failed, so a report is always produced.
 
 ## Documentation
 
