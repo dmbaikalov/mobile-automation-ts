@@ -1,4 +1,5 @@
 import { config as sharedConfig } from "./wdio.shared.conf.js";
+import { APP_PACKAGE } from "../constants.js";
 
 export const config: WebdriverIO.Config = {
   ...sharedConfig,
@@ -21,4 +22,20 @@ export const config: WebdriverIO.Config = {
       "appium:automationName": "UiAutomator2",
     },
   ],
+
+  // Reset app state between tests — package-based, so Android-only.
+  beforeTest: async function () {
+    await driver.activateApp(APP_PACKAGE);
+  },
+
+  // Must also re-run the shared screenshot-on-failure logic, since this
+  // afterTest replaces (doesn't merge with) wdio.shared.conf.ts's own.
+  afterTest: async function (test, context, results) {
+    await (sharedConfig.afterTest as WebdriverIO.Config["afterTest"])?.(
+      test,
+      context,
+      results,
+    );
+    await driver.terminateApp(APP_PACKAGE);
+  },
 } as WebdriverIO.Config;

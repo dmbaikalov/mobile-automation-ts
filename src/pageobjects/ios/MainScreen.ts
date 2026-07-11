@@ -1,46 +1,36 @@
 import BasePage from "../BasePage.js";
 
-// iOS locators for the same demo app as Android's MainScreen. Kept as a
-// separate class per platform (even though several ids happen to match
-// Android's) rather than one shared Page Object with implicit
-// cross-platform assumptions — never verified against a real device/
-// simulator, since no Mac is available locally; only exercised via
-// BrowserStack once that's wired up (Phase 13).
+// Locators verified against a real BrowserStack App Automate session
+// (BrowserStack-SampleApp.ipa, bundleId com.browserstack.Sample-iOS) via
+// getPageSource() — not guessed. This is a different demo app than
+// Android's webdriverio/native-demo-app: BrowserStack's official iOS
+// sample app has no login/product screens, only a 3-tab UI (UI Elements,
+// Web View, Local Testing). Android and iOS therefore exercise different
+// underlying apps rather than the same one, a deliberate trade-off since
+// no device build of native-demo-app is available for real iOS hardware.
 class MainScreen extends BasePage {
-  get loginNavButton() {
-    return $("~Login");
+  get uiElementsTabButton() {
+    return $("~UI Elements");
   }
 
-  get webNavButton() {
-    return $("~Webview");
+  get webViewTabButton() {
+    return $("~Web View");
   }
 
-  get formsNavButton() {
-    return $("~Forms");
+  get localTestingTabButton() {
+    return $("~Local Testing");
   }
 
-  get swipeNavButton() {
-    return $("~Swipe");
+  async openUiElements() {
+    await this.uiElementsTabButton.click();
   }
 
-  get dragNavButton() {
-    return $("~Drag");
+  async openWebView() {
+    await this.webViewTabButton.click();
   }
 
-  get menuNavButton() {
-    return $("~Menu");
-  }
-
-  async openLogin() {
-    await this.loginNavButton.click();
-  }
-
-  async openForms() {
-    await this.formsNavButton.click();
-  }
-
-  async openSwipe() {
-    await this.swipeNavButton.click();
+  async openLocalTesting() {
+    await this.localTestingTabButton.click();
   }
 }
 

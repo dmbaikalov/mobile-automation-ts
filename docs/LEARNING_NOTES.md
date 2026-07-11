@@ -433,6 +433,35 @@ src/
 
 ---
 
+## Фаза 13 — Хмарні пристрої (BrowserStack)
+
+### Урок 15: Реальний BrowserStack, App Automate API, перший iOS-тест на хмарному пристрої
+
+**BrowserStack технічно — це чужий Appium Server у хмарі**, що приймає той самий WebDriver-протокол (Фаза 3), тільки: URL — `hub-cloud.browserstack.com` (не `localhost:4723`), автентифікація через `bstack:options.userName`/`accessKey`, і `appium:app` — не локальний шлях, а `bs://<hash>`-посилання на застосунок, попередньо завантажений через окремий REST API.
+
+**Завантаження застосунку на BrowserStack (одноразова дія на білд):**
+```bash
+curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+  -X POST "https://api-cloud.browserstack.com/app-automate/upload" \
+  -F "file=@apps/my-app.apk"
+# → {"app_url": "bs://<hash>"}
+```
+Хеш **не стабільний** між завантаженнями того самого файлу — тому зберігається в `.env` (`BROWSERSTACK_ANDROID_APP_URL`/`BROWSERSTACK_IOS_APP_URL`), не хардкодиться в конфізі.
+
+**Інцидент із секретами під час сесії:** реальні BrowserStack-креденшели двічі потрапляли у видиму частину розмови (спершу користувач вставив їх напряму в чат для діагностики; тестова автентифікація підтвердила `200 OK`, але значення довелось одразу скинути через BrowserStack Dashboard). Другий раз — при читанні `.env` через звичайний файловий Read-інструмент замість `Bash`+`source`, значення потрапили у внутрішній контекст сесії (не у видимий чат, але теж небажано). **Правило на майбутнє:** `.env`-файли з реальними секретами читати лише через shell (`source .env` у підпроцесі), ніколи напряму інструментом перегляду файлів — і ніколи не просити користувача вставляти секрети в чат для "перевірки", коли є спосіб перевірити програмно без їх розкриття.
+
+**Несумісність симулятор-білду з BrowserStack:** `ios.simulator.wdio.native.app.v2.2.0.zip` (той самий файл з Уроку 6) відхилено BrowserStack App Automate (`BROWSERSTACK_NO_BRS_FILE_FOUND` / `BROWSERSTACK_APP_UNZIP_FAILED`) — BrowserStack виконує тести на **реальних пристроях**, і потребує **device-build `.ipa`**, а не артефакт, зібраний для iOS Simulator. `native-demo-app` не публікує готового device-build у релізах.
+
+**Рішення — розійтись по демо-застосунках для Android і iOS.** Android лишається на `webdriverio/native-demo-app` (вже маємо, повністю робочий POM). iOS переходить на **офіційний BrowserStack Sample App** (`https://www.browserstack.com/app-automate/sample-apps/ios/BrowserStack-SampleApp.ipa` — підтверджений прямий URL, на відміну від кількох вгаданих і неправильних посилань, випробуваних по дорозі, включно з Android APK з чужого репозиторію, що виявився зовсім іншим "AddNumber"-застосунком при перевірці через `aapt dump badging`). Свідомий, задокументований компроміс: Android і iOS тепер тестують **різні** застосунки, не "той самий тест на двох платформах" — прийнятно, бо мета цієї фази — продемонструвати саме факт роботи через BrowserStack, а не крос-платформну ідентичність сценарію.
+
+**Реальна структура BrowserStack Sample iOS App** (`com.browserstack.Sample-iOS`), отримана через `getPageSource()` на справжній сесії, а не вгадана: таби `~UI Elements` (кнопки `~Text Button`, `~Alert`), `~Web View`, `~Local Testing` (обидва останні — просто WebView-контент). Це і продемонструвало ще раз (уже втретє за курс — Уроки 7, 11, тепер тут) чому **перевірка наживо** завжди краща за здогадку з документації/чужого коду, навіть коли здогадка виглядає правдоподібно (спроби вгадати URL Android-еквівалента чи структуру логін-екрана через WebFetch/пошук виявились хибними).
+
+**Розділення platform-specific lifecycle-хуків.** `activateApp`/`terminateApp(APP_PACKAGE)` — Android-специфічна, пакет-орієнтована логіка; для BrowserStack iOS-сесії вона зайва (BrowserStack сам встановлює/запускає застосунок при старті сесії) і посилалась би на неіснуючий Android-package. Перенесено зі `shared`-конфігу в `wdio.android.conf.ts`; `shared` лишає тільки справді універсальний `afterTest` (скріншот при падінні) — Android-конфіг у своєму `afterTest` явно викликає й успадковану логіку скріншота, і власний `terminateApp`, бо перевизначення хука через спред об'єкта **замінює**, а не зливає, попередню функцію.
+
+**Перший реальний iOS-тест пройшов на BrowserStack** (`npm run wdio:ios` → `PASSED in iOS on iOS`) — підтверджує, що вся архітектура (окремий iOS-конфіг з `hostname`/`bstack:options`, окремі iOS Page Objects, allowlist через `specs`) працює наскрізь, від коду фреймворку до реального хмарного пристрою.
+
+---
+
 ## Глосарій (доповнюється)
 
 | Термін | Означення |
@@ -468,16 +497,21 @@ src/
 | **Page Object singleton** | `export default new ScreenClass()` — сторінка застосунку експортується як готовий екземпляр, не клас |
 | **Context (Native/WebView)** | `NATIVE_APP` vs `WEBVIEW_*` — режим інтерпретації локаторів; перемикається через `driver.switchContext()`, список доступних — `driver.getContexts()` |
 | **Chromedriver version binding** | Chromedriver суворо прив'язаний до конкретної версії Chrome/System WebView на пристрої — розбіжність версій блокує switchContext на WebView |
+| **bs://\<hash\>** | Ідентифікатор застосунку, завантаженого на BrowserStack App Automate; нестабільний між завантаженнями, зберігається в `.env`, не хардкодиться |
+| **bstack:options** | BrowserStack-специфічний namespace capability (deviceName, osVersion, userName, accessKey тощо) — аналог `appium:` префіксу, але для вендора BrowserStack |
+| **App Automate upload API** | `POST https://api-cloud.browserstack.com/app-automate/upload` — завантажує APK/IPA і повертає `bs://` app_url |
+| **Device build vs simulator build (iOS)** | Артефакт, зібраний для iOS Simulator, несумісний із хмарними сервісами реальних пристроїв (BrowserStack) — потрібен окремий `.ipa` device-build |
 
 ---
 
 ## Статус курсу
 
-- **Поточна фаза:** Фаза 13 — Хмарні пристрої / BrowserStack (наступна)
-- **Останній завершений урок:** Фаза 10 (продовження) — симетрична android/ios структура, iOS-конфіг + Page Objects (код лише, без реального запуску), allowlist через `specs` замість `exclude`
+- **Поточна фаза:** Фаза 14 — Продакшн-рівень (наступна)
+- **Останній завершений урок:** Фаза 13, Урок 15 — реальний BrowserStack, перший успішний iOS-тест на хмарному пристрої (`npm run wdio:ios`)
 - **Поточна структура:** усе під `src/` — `src/pageobjects/{BasePage.ts, android/*.ts, ios/*.ts}`, `src/config/{wdio.shared,wdio.android,wdio.ios}.conf.ts`, `src/constants.ts`, `src/specs/{android,ios}/*.e2e.ts`
 - **CI:** `.github/workflows/android.yml` — запускає `src/specs/android/{login,swipe,forms}.e2e.ts` на macOS-раннері з Android emulator; `web.e2e.ts` явно виключений (--exclude) через задокументоване обмеження Chromedriver
-- **Запуск локально:** `npm run wdio` → Android (`src/config/wdio.android.conf.ts`); `npm run wdio:ios` → iOS-конфіг (не запускається без BrowserStack, Фаза 13)
+- **Запуск локально:** `npm run wdio` → Android (`src/config/wdio.android.conf.ts`); `npm run wdio:ios` → BrowserStack iOS (`src/config/wdio.ios.conf.ts`), реально працює
+- **iOS демо-застосунок:** офіційний BrowserStack Sample App (`com.browserstack.Sample-iOS`) — навмисно інший застосунок, ніж Android's `webdriverio/native-demo-app` (немає device-build native-demo-app для реальних iOS-пристроїв)
 - **Відомий блокер:** `web.e2e.ts` не проходить у поточному середовищі через невідповідність версії Chromedriver ↔ System WebView на емуляторі (не блокує решту курсу)
 - **Робочий AVD для курсу:** Pixel 7 Pro (2), API 33 (Android 13), Google APIs image, serial `emulator-5554`
 - **Appium:** v3.5.2, драйвери `uiautomator2@7.5.1` + `chromium@2.2.5` (автозавантажений), сервер на `http://127.0.0.1:4723`

@@ -1,5 +1,3 @@
-import { APP_PACKAGE } from "../constants.js";
-
 export const config: Partial<WebdriverIO.Config> = {
   runner: "local",
   tsConfigPath: "../../tsconfig.json",
@@ -25,10 +23,10 @@ export const config: Partial<WebdriverIO.Config> = {
     timeout: 60000,
   },
 
-  beforeTest: async function () {
-    await driver.activateApp(APP_PACKAGE);
-  },
-
+  // Screenshot-on-failure is the only lifecycle behavior common to both
+  // platforms. App reset (activateApp/terminateApp) is Android-specific
+  // (package-based) and belongs in wdio.android.conf.ts instead — a
+  // BrowserStack iOS session manages app install/launch itself.
   afterTest: async function (
     test,
     context,
@@ -37,7 +35,5 @@ export const config: Partial<WebdriverIO.Config> = {
     if (!passed) {
       await browser.takeScreenshot();
     }
-
-    await driver.terminateApp(APP_PACKAGE);
   },
 };
